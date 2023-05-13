@@ -1,4 +1,9 @@
 #include "systemcalls.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -17,7 +22,7 @@ bool do_system(const char *cmd)
  *   or false() if it returned a failure
 */
 
-    return true;
+    return system(cmd) == 0;
 }
 
 /**
@@ -58,6 +63,40 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    
+    if(command[0][0] != '/'){
+        printf("not absolute path\n");
+        return false;
+    }
+
+    if(command[1][0] == '-' && command[1][1] == 'f'){
+        if(command[2][0] != '/'){
+            printf("test argument is not absolute path\n");
+            return false;
+        }
+    }
+
+    int c_status;
+    fflush(stdout);
+
+    pid_t cid = fork();
+    if (cid == -1){
+        printf("failed to fork\n");
+        return false;
+    }else if(cid == 0){ // child process
+        // printf("executing command: %s\n", command[0]);
+        // printf("with arguments: %s\n", command[1]);
+        // char path[64];
+        // sprintf(path, "/bin/%s", command[0]); 
+        // execv(path, &command[1]);
+
+        execv(command[0], &command[0]);
+        printf("child process failed\n");
+        return false;
+    }else{ // parent process
+        wait(&c_status);
+        printf("child process exited with status %d\n", c_status);
+    }
 
     va_end(args);
 
@@ -92,7 +131,46 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+    if(command[0][0] != '/'){
+        printf("not absolute path\n");
+        return false;
+    }
 
+    if(command[1][0] == '-' && command[1][1] == 'f'){
+        if(command[2][0] != '/'){
+            printf("test argument is not absolute path\n");
+            return false;
+        }
+    }
+
+    int fd = open(outputfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if(fd < 0){
+        perror("Failed to open file\n");
+    }
+
+    int c_status;
+    fflush(stdout);
+
+    int cid = fork();
+    if (cid == -1){
+        printf("failed to fork\n");
+        close(fd);
+        return false;
+    }else if(cid == 0){ // child process
+        if (dup2(fd, 1) < 0){
+            perror("dup2 error\n");
+        }
+        
+        execv(command[0], &command[0]);
+        printf("child process failed\n");
+        close(fd);
+        
+        return false;
+    }else{ // parent process
+        wait(&c_status);
+        printf("child process exited with status %d\n", c_status);
+    }
+    close(fd);
     va_end(args);
 
     return true;

@@ -1,18 +1,13 @@
-#!/bin/bash
+#!/bin/sh
 
-writefile=$1
-writestr=$2
+compiler=$1
+make clean
 
-if [ $# -lt 2 ]
+if [ $# -lt 1 ]
 then
-    echo "Must specify <write file path> and <write string>"
-    exit 1
+    echo "Compiling with native compiler"
+    make
 else
-    if ! [ -e "$writefile" ]
-    then
-        mkdir -p $(dirname "$writefile")
-    fi
-    
-    touch "$writefile"
-    echo "$writestr" > "$writefile"
+    echo "Compiling with cross compiler"
+    make -e CROSS_COMPILE=$compiler
 fi
